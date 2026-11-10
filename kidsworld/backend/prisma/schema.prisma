@@ -1,0 +1,205 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  username      String    @unique
+  password_hash String
+  role          Role      @default(CHILD)
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  profile       Profile?
+  quiz_attempts QuizAttempt[]
+  visited_countries VisitedCountry[]
+  achievements  UserAchievement[]
+  refresh_tokens RefreshToken[]
+  daily_challenges UserDailyChallenge[]
+
+  @@map("users")
+}
+
+model Profile {
+  id                  String   @id @default(uuid())
+  user_id             String   @unique
+  username            String
+  avatar_style        Json?
+  language_preference String   @default("en")
+  total_points        Int      @default(0)
+  parent_email        String?
+  is_parent           Boolean  @default(false)
+  child_id            String?
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("profiles")
+}
+
+model RefreshToken {
+  id         String   @id @default(uuid())
+  user_id    String
+  token      String   @unique
+  expires_at DateTime
+  created_at DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+model Country {
+  id                      String   @id @default(uuid())
+  code                    String   @unique
+  name_en                 String
+  name_ar                 String
+  capital_en              String
+  capital_ar              String
+  continent               String
+  population              BigInt?
+  area                    BigInt?
+  flag_emoji              String?
+  flag_url                String?
+  map_url                 String?
+  landmark_url            String?
+  image_url               String?
+  description_en          String?
+  description_ar          String?
+  fun_facts_en            String[]
+  fun_facts_ar            String[]
+  famous_landmarks_en     String[]
+  famous_landmarks_ar     String[]
+  famous_animals_en       String[]
+  famous_animals_ar       String[]
+  famous_foods_en         String[]
+  famous_foods_ar         String[]
+  latitude                Float?
+  longitude               Float?
+  created_at              DateTime @default(now())
+
+  quizzes           Quiz[]
+  visited_countries VisitedCountry[]
+
+  @@map("countries")
+}
+
+model Quiz {
+  id              String   @id @default(uuid())
+  country_id      String
+  question_en     String
+  question_ar     String
+  correct_answer  String
+  options_en      String[]
+  options_ar      String[]
+  difficulty      Difficulty @default(EASY)
+  points          Int      @default(10)
+  created_at      DateTime @default(now())
+
+  country Country @relation(fields: [country_id], references: [id], onDelete: Cascade)
+  attempts QuizAttempt[]
+
+  @@map("quizzes")
+}
+
+model QuizAttempt {
+  id          String   @id @default(uuid())
+  user_id     String
+  quiz_id     String?  // Optional - null for dynamic quizzes
+  answer      String
+  is_correct  Boolean
+  points_earned Int    @default(0)
+  attempted_at DateTime @default(now())
+
+  user User  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  quiz Quiz? @relation(fields: [quiz_id], references: [id], onDelete: Cascade)
+
+  @@map("quiz_attempts")
+}
+
+model VisitedCountry {
+  id          String   @id @default(uuid())
+  user_id     String
+  country_id  String
+  visited_at  DateTime @default(now())
+
+  user    User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  country Country @relation(fields: [country_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, country_id])
+  @@map("visited_countries")
+}
+
+model Achievement {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String
+  icon        String
+  criteria    Json
+  points      Int      @default(0)
+  created_at  DateTime @default(now())
+
+  user_achievements UserAchievement[]
+
+  @@map("achievements")
+}
+
+model UserAchievement {
+  id             String   @id @default(uuid())
+  user_id        String
+  achievement_id String
+  earned_at      DateTime @default(now())
+
+  user        User        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  achievement Achievement @relation(fields: [achievement_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, achievement_id])
+  @@map("user_achievements")
+}
+
+enum Role {
+  CHILD
+  PARENT
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+model DailyChallenge {
+  id              String   @id @default(uuid())
+  challenge_date  DateTime @unique @db.Date
+  challenge_type  String
+  target_value    Int
+  reward_points   Int
+  description_en  String
+  description_ar  String
+  created_at      DateTime @default(now())
+
+  user_challenges UserDailyChallenge[]
+
+  @@map("daily_challenges")
+}
+
+model UserDailyChallenge {
+  id           String   @id @default(uuid())
+  user_id      String
+  challenge_id String
+  progress     Int      @default(0)
+  completed    Boolean  @default(false)
+  created_at   DateTime @default(now())
+
+  user      User           @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  challenge DailyChallenge @relation(fields: [challenge_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, challenge_id])
+  @@map("user_daily_challenges")
+}
